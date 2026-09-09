@@ -145,6 +145,7 @@ public static class FishingPondGenerator
         CreateCharacter("Bot_C", new Vector3(-16f, 0.15f, 10f), false, root.transform, "Assets/Floreswa/Prefabs/male01_2.prefab");
         CreateCharacter("Bot_D", new Vector3(16f, 0.15f, 10f), false, root.transform, "Assets/Floreswa/Prefabs/male02_2.prefab");
         root.AddComponent<FishingLeaderboardController>();
+        root.AddComponent<MobileTouchControls>();
 
         // ==========================================================
         // LIGHTING — suasana tropis sore

@@ -187,7 +187,7 @@ public class FishingPlayerController : MonoBehaviour
 
     private void Update()
     {
-        if (state == FishingState.ReadyToCast && IsLeftClickPressed())
+        if (state == FishingState.ReadyToCast && (IsLeftClickPressed() || MobileTouchControls.CastPressed))
             HandleCastInput();
 
         AnimateFishing();
@@ -199,6 +199,8 @@ public class FishingPlayerController : MonoBehaviour
     private void HandleMovement()
     {
         var input = Vector3.zero;
+
+        // Keyboard input
         if (Keyboard.current != null)
         {
             if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed)
@@ -209,6 +211,14 @@ public class FishingPlayerController : MonoBehaviour
                 input.z -= 1f;
             if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed)
                 input.z += 1f;
+        }
+
+        // Mobile joystick input
+        var joy = MobileTouchControls.JoystickInput;
+        if (joy.sqrMagnitude > 0.01f)
+        {
+            input.x += joy.x;
+            input.z += joy.y;
         }
         if (input.sqrMagnitude > 1f)
             input.Normalize();
@@ -304,12 +314,12 @@ public class FishingPlayerController : MonoBehaviour
             case FishingState.ReelBack:
                 if (stateTimer <= 0f)
                 {
-                    state = FishingState.Casting;
-                    stateTimer = clipCastDuration;
-                    waterPoint = transform.position + transform.forward * 2.5f + Vector3.up * 0.3f;
+                    // Wait for player input before casting again
+                    state = FishingState.ReadyToCast;
+                    SetFishingLineVisible(false);
                     if (bobber != null)
-                        bobber.GetComponent<Renderer>().enabled = true;
-                    PlayFishingAnimation("Fishing Begin");
+                        bobber.GetComponent<Renderer>().enabled = false;
+                    PlayFishingAnimation("Fishing Stop");
                 }
                 break;
         }

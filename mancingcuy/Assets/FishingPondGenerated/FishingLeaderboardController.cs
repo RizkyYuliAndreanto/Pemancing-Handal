@@ -17,6 +17,7 @@ public class FishingLeaderboardController : MonoBehaviour
     private string heaviestPlayer = "-";
     private bool running;
     private bool ended;
+    private bool showHelp;
     private FishingPlayerController playerController;
     private float playerBiteTimer;
     private bool playerBite;
@@ -29,6 +30,9 @@ public class FishingLeaderboardController : MonoBehaviour
     private GUIStyle rowStyle;
     private GUIStyle toastStyle;
     private GUIStyle markerStyle;
+    private GUIStyle instrStyle;
+    private GUIStyle helpBtnStyle;
+    private GUIStyle helpBoxStyle;
 
     private void Start()
     {
@@ -55,7 +59,9 @@ public class FishingLeaderboardController : MonoBehaviour
     {
         if (!running)
         {
-            if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
+            var enterPressed = (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
+                || MobileTouchControls.EnterPressed;
+            if (enterPressed)
             {
                 if (IsPlayerAtPond())
                     StartSession();
@@ -92,106 +98,149 @@ public class FishingLeaderboardController : MonoBehaviour
     private void OnGUI()
     {
         EnsureStyles();
-        var panel = new Rect(Screen.width - 270f, 14f, 255f, 335f);
+        var mobile = MobileTouchControls.IsMobile;
+        var s = mobile ? Mathf.Max(1f, Screen.width / 800f) : 1f; // UI scale factor
+
+        // === TOAST / NOTIF at TOP CENTER ===
+        if (toastRemaining > 0f)
+        {
+            var tw = 400f * s;
+            var toastRect = new Rect(Screen.width * 0.5f - tw * 0.5f, 16f * s, tw, 48f * s);
+            GUI.Label(toastRect, toast, toastStyle);
+        }
+
+        // === LEADERBOARD PANEL (right side) ===
+        var pw = 255f * s;
+        var ph = 335f * s;
+        var panel = new Rect(Screen.width - pw - 10f, 72f * s, pw, ph);
         GUI.Box(panel, GUIContent.none, panelStyle);
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 12f, 220f, 28f), "GALATAMA", titleStyle);
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 44f, 95f, 26f), FormatTime(), titleStyle);
-        GUI.Label(new Rect(panel.x + 112f, panel.y + 49f, 125f, 20f),
-            ended ? "SESI BERAKHIR" : running ? "SESI BERJALAN" : "TEKAN ENTER UNTUK MULAI", rowStyle);
+        GUI.Label(new Rect(panel.x + 14f * s, panel.y + 12f * s, 220f * s, 28f * s), "GALATAMA", titleStyle);
+        GUI.Label(new Rect(panel.x + 14f * s, panel.y + 44f * s, 95f * s, 26f * s), FormatTime(), titleStyle);
+        GUI.Label(new Rect(panel.x + 100f * s, panel.y + 49f * s, 140f * s, 20f * s),
+            ended ? "SESI BERAKHIR" : running ? "SESI BERJALAN" : "TEKAN ENTER", instrStyle);
 
         var sorted = new List<int> { 0, 1, 2, 3, 4 };
         sorted.Sort((a, b) => totals[b].CompareTo(totals[a]));
         for (var rank = 0; rank < sorted.Count; rank++)
         {
             var index = sorted[rank];
-            var y = panel.y + 82f + rank * 32f;
-            GUI.Label(new Rect(panel.x + 14f, y, 30f, 24f), $"#{rank + 1}", rowStyle);
-            GUI.Label(new Rect(panel.x + 48f, y, 105f, 24f), playerNames[index], rowStyle);
-            GUI.Label(new Rect(panel.x + 158f, y, 82f, 24f), $"{totals[index]:0.0} kg", rowStyle);
+            var y = panel.y + 82f * s + rank * 32f * s;
+            GUI.Label(new Rect(panel.x + 14f * s, y, 30f * s, 24f * s), $"#{rank + 1}", rowStyle);
+            GUI.Label(new Rect(panel.x + 48f * s, y, 105f * s, 24f * s), playerNames[index], rowStyle);
+            GUI.Label(new Rect(panel.x + 158f * s, y, 82f * s, 24f * s), $"{totals[index]:0.0} kg", rowStyle);
         }
 
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 255f, 220f, 22f), "Tangkapan Terberat", rowStyle);
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 280f, 220f, 26f),
+        GUI.Label(new Rect(panel.x + 14f * s, panel.y + 255f * s, 220f * s, 22f * s), "Tangkapan Terberat", rowStyle);
+        GUI.Label(new Rect(panel.x + 14f * s, panel.y + 280f * s, 220f * s, 26f * s),
             $"{heaviestPlayer}: {heaviest:0.0} kg", titleStyle);
 
+        // === HELP BUTTON (top-right, above leaderboard) ===
+        if (!running && !ended)
+        {
+            if (GUI.Button(new Rect(Screen.width - 120f * s, 16f * s, 105f * s, 40f * s), "? BANTUAN", helpBtnStyle))
+                showHelp = !showHelp;
+
+            if (showHelp)
+            {
+                var helpRect = new Rect(Screen.width - 370f * s, 62f * s, 355f * s, 260f * s);
+                GUI.Box(helpRect, GUIContent.none, helpBoxStyle);
+                GUI.Label(new Rect(helpRect.x + 14f * s, helpRect.y + 10f * s, 325f * s, 26f * s), "CARA BERMAIN", titleStyle);
+                var helpText = mobile
+                    ? "1. Gerak dengan JOYSTICK (kiri bawah)\n" +
+                      "2. Dekati tepi kolam\n" +
+                      "3. Tekan tombol MULAI (kanan)\n" +
+                      "4. Tekan LEMPAR PANCING\n" +
+                      "5. Tunggu ikan menyentak\n" +
+                      "6. Tekan TARIK saat marker di zona hijau\n" +
+                      "7. Setelah ikan tertarik, tekan LEMPAR lagi\n" +
+                      "8. Kumpulkan ikan terbanyak dalam 60 detik!"
+                    : "1. Gerak dengan WASD / Arrow Keys\n" +
+                      "2. Dekati tepi kolam\n" +
+                      "3. Tekan ENTER untuk mulai sesi\n" +
+                      "4. Klik LEMPAR PANCING / tekan ENTER\n" +
+                      "5. Tunggu ikan menyentak\n" +
+                      "6. Tekan SPACE saat marker di zona hijau\n" +
+                      "7. Setelah ikan tertarik, klik lagi untuk\n" +
+                      "   melempar ulang\n" +
+                      "8. Kumpulkan ikan terbanyak dalam 60 detik!";
+                GUI.Label(new Rect(helpRect.x + 14f * s, helpRect.y + 38f * s, 325f * s, 215f * s), helpText, instrStyle);
+            }
+        }
+
+        // === MINIGAME / INSTRUCTION AREA (bottom center) ===
         if (running)
         {
-            var miniGameRect = new Rect(Screen.width * 0.5f - 190f, Screen.height - 155f, 380f, 92f);
+            var mgW = 380f * s;
+            var mgH = 92f * s;
+            var miniGameRect = new Rect(Screen.width * 0.5f - mgW * 0.5f, Screen.height - mgH - 70f * s, mgW, mgH);
             if (playerController != null && playerController.IsReadyToCast)
             {
-                var castButton = new Rect(miniGameRect.x + 55f, miniGameRect.y + 18f, miniGameRect.width - 110f, 42f);
-                if (GUI.Button(castButton, "LEMPAR PANCING"))
+                var castButton = new Rect(miniGameRect.x + 55f * s, miniGameRect.y + 18f * s, miniGameRect.width - 110f * s, 42f * s);
+                if (GUI.Button(castButton, "LEMPAR PANCING") || MobileTouchControls.CastPressed)
                 {
-                    Debug.Log($"[FishingUI] Cast button clicked. PlayerController={playerController.name}, Ready={playerController.IsReadyToCast}", this);
                     playerController.HandleCastInput();
                     toast = playerController.IsReadyToCast
-                        ? "Cast belum diterima. Pastikan Player memiliki FishingPlayerController."
+                        ? "Cast belum diterima."
                         : "Pancing dilempar ke kolam.";
                     toastRemaining = 2f;
                 }
             }
             else if (playerBite)
             {
-                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y, miniGameRect.width, 24f),
-                    "IKAN MENYENTAK! TEKAN SPACE SAAT MARKER DI ZONA HIJAU", rowStyle);
-                var bar = new Rect(miniGameRect.x + 10f, miniGameRect.y + 34f, miniGameRect.width - 20f, 26f);
+                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y, miniGameRect.width, 28f * s),
+                    "IKAN MENYENTAK! TEKAN SPACE DI ZONA HIJAU", instrStyle);
+                var bar = new Rect(miniGameRect.x + 10f * s, miniGameRect.y + 34f * s, miniGameRect.width - 20f * s, 26f * s);
                 GUI.Box(bar, GUIContent.none, panelStyle);
-                var zone = new Rect(bar.x + bar.width * biteZoneStart, bar.y + 3f,
-                    bar.width * BiteZoneWidth, bar.height - 6f);
+                var zone = new Rect(bar.x + bar.width * biteZoneStart, bar.y + 3f * s,
+                    bar.width * BiteZoneWidth, bar.height - 6f * s);
                 GUI.Box(zone, GUIContent.none, toastStyle);
-                var marker = new Rect(bar.x + bar.width * biteMarker - 4f, bar.y - 2f, 8f, bar.height + 4f);
+                var marker = new Rect(bar.x + bar.width * biteMarker - 4f * s, bar.y - 2f * s, 8f * s, bar.height + 4f * s);
                 GUI.Box(marker, GUIContent.none, markerStyle);
-                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y + 63f, miniGameRect.width, 24f),
-                    "Tekan tombol SPACE di keyboard sekarang", rowStyle);
+                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y + 63f * s, miniGameRect.width, 28f * s),
+                    mobile ? "TEKAN TARIK SEKARANG!" : "TEKAN SPACE SEKARANG!", instrStyle);
             }
             else if (playerController != null && playerController.IsPulling)
             {
-                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y + 25f, miniGameRect.width, 28f),
-                    "Menarik ikan! Tunggu sebentar...", rowStyle);
+                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y + 25f * s, miniGameRect.width, 28f * s),
+                    "MENARIK IKAN! TUNGGU SEBENTAR...", instrStyle);
             }
             else
             {
-                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y + 25f, miniGameRect.width, 28f),
-                    "Menunggu ikan... jangan tekan SPACE dulu", rowStyle);
+                GUI.Label(new Rect(miniGameRect.x, miniGameRect.y + 25f * s, miniGameRect.width, 28f * s),
+                    mobile ? "MENUNGGU IKAN..." : "MENUNGGU IKAN... JANGAN TEKAN SPACE DULU", instrStyle);
             }
         }
         else if (!ended)
         {
-            GUI.Label(new Rect(Screen.width * 0.5f - 180f, Screen.height - 78f, 360f, 30f),
-                "WASD menuju tepi kolam, lalu tekan ENTER", rowStyle);
+            GUI.Label(new Rect(Screen.width * 0.5f - 220f * s, Screen.height - 78f * s, 440f * s, 34f * s),
+                mobile ? "JOYSTICK MENUJU KOLAM, LALU TEKAN MULAI" : "WASD MENUJU TEPI KOLAM, LALU TEKAN ENTER", instrStyle);
         }
 
-        DrawPlayerInventory();
-        DrawFishingDebugStatus();
-
-        if (toastRemaining > 0f)
-        {
-            var toastRect = new Rect(Screen.width * 0.5f - 180f, Screen.height - 90f, 360f, 48f);
-            GUI.Label(toastRect, toast, toastStyle);
-        }
+        DrawPlayerInventory(s);
+        DrawFishingDebugStatus(s);
     }
 
-    private void DrawPlayerInventory()
+    private void DrawPlayerInventory(float s = 1f)
     {
         if (playerController == null)
             return;
 
-        var inventoryRect = new Rect(14f, 14f, 220f, 92f);
+        var inventoryRect = new Rect(14f * s, 14f * s, 220f * s, 92f * s);
         GUI.Box(inventoryRect, GUIContent.none, panelStyle);
-        GUI.Label(new Rect(inventoryRect.x + 12f, inventoryRect.y + 10f, 195f, 22f), "INVENTORY IKAN", titleStyle);
-        GUI.Label(new Rect(inventoryRect.x + 12f, inventoryRect.y + 38f, 195f, 20f),
+        GUI.Label(new Rect(inventoryRect.x + 12f * s, inventoryRect.y + 10f * s, 195f * s, 22f * s), "INVENTORY IKAN", titleStyle);
+        GUI.Label(new Rect(inventoryRect.x + 12f * s, inventoryRect.y + 38f * s, 195f * s, 20f * s),
             $"Tangkapan: {playerController.InventoryCount}", rowStyle);
-        GUI.Label(new Rect(inventoryRect.x + 12f, inventoryRect.y + 61f, 195f, 20f),
+        GUI.Label(new Rect(inventoryRect.x + 12f * s, inventoryRect.y + 61f * s, 195f * s, 20f * s),
             $"Total berat: {playerController.InventoryTotalWeight:0.0} kg", rowStyle);
     }
 
-    private void DrawFishingDebugStatus()
+    private void DrawFishingDebugStatus(float s = 1f)
     {
         if (playerController == null)
             return;
 
         var status = "FISHING: " + playerController.GetFishingDebugState();
-        var debugRect = new Rect(14f, Screen.height - 72f, 300f, 48f);
+        var debugRect = new Rect(14f * s, Screen.height - 72f * s, 300f * s, 48f * s);
         GUI.Label(debugRect, status, rowStyle);
     }
 
@@ -300,7 +349,9 @@ public class FishingLeaderboardController : MonoBehaviour
 
         playerBiteWindow -= Time.deltaTime;
         biteMarker = Mathf.PingPong((1.3f - playerBiteWindow) * 0.72f, 1f);
-        if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+        var spacePressed = (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            || MobileTouchControls.SpacePressed;
+        if (spacePressed)
         {
             if (playerBiteWindow > 0f && biteMarker >= biteZoneStart && biteMarker <= biteZoneStart + BiteZoneWidth)
             {
@@ -391,9 +442,12 @@ public class FishingLeaderboardController : MonoBehaviour
             return;
         panelStyle = new GUIStyle(GUI.skin.box) { normal = { background = MakeTexture(new Color(0.03f, 0.12f, 0.17f, 0.94f)) } };
         titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = Color.white } };
-        rowStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, normal = { textColor = new Color(0.75f, 0.9f, 0.92f) } };
-        toastStyle = new GUIStyle(GUI.skin.box) { fontSize = 16, alignment = TextAnchor.MiddleCenter, normal = { textColor = Color.white, background = MakeTexture(new Color(0.02f, 0.35f, 0.38f, 0.96f)) } };
+        rowStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.75f, 0.9f, 0.92f) } };
+        instrStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 1f, 0.7f) }, wordWrap = true };
+        toastStyle = new GUIStyle(GUI.skin.box) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = Color.white, background = MakeTexture(new Color(0.02f, 0.35f, 0.38f, 0.96f)) } };
         markerStyle = new GUIStyle(GUI.skin.box) { normal = { background = MakeTexture(new Color(1f, 0.85f, 0.1f, 1f)) } };
+        helpBtnStyle = new GUIStyle(GUI.skin.button) { fontSize = 16, fontStyle = FontStyle.Bold, normal = { textColor = Color.white, background = MakeTexture(new Color(0.1f, 0.45f, 0.55f, 0.95f)) }, hover = { textColor = Color.yellow, background = MakeTexture(new Color(0.15f, 0.55f, 0.65f, 0.95f)) } };
+        helpBoxStyle = new GUIStyle(GUI.skin.box) { normal = { background = MakeTexture(new Color(0.02f, 0.08f, 0.14f, 0.96f)) } };
     }
 
     private static Texture2D MakeTexture(Color color)
