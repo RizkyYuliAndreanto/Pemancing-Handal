@@ -1,23 +1,23 @@
-VBCSCompilerPreWarmer: pre-warm launched (dotnet PID 41156)
-VBCSCompiler prewarm took 71.19 ms
+VBCSCompilerPreWarmer: pre-warm launched (dotnet PID 40516)
+VBCSCompiler prewarm took 60.65 ms
 [Licensing::Module] Trying to connect to existing licensing client channel...
 Built from '6000.6/respin/6000.6.0f1-fa21a270ab12' branch; Version is '6000.6.0f1 (f7f8ed4d1e24) revision 16251117'; Using compiler version '194234433'; Build Type 'Release'
-[Licensing::IpcConnector] Successfully connected to: "LicenseClient-User" at "2026-09-09T13:05:38.0980127Z"
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-User" at "2026-09-09T13:09:25.431647Z"
 OS: 'Windows 11  (10.0.26200) CoreSingleLanguage' Language: 'en' Physical Memory: 14188 MB
 BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
 System  architecture: x64
 Process architecture: x64
-Date: 2026-09-09T13:05:38Z
+Date: 2026-09-09T13:09:25Z
 [Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 26248, path: "D:/Games/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
 [Licensing::Module] LicensingClient has failed validation; ignoring
 [Licensing::Client] Handshaking with LicensingClient:
   Version:                 1.18.3+d7ffd15
-  Session Id:              18658776c8df4092874af09f80d96783
+  Session Id:              9267b9e81dfe4036a860a266171adc1f
   Correlation Id:          8158d955aba55825cd45b1d5fca743a6
-  External correlation Id: 7650221760374826857
+  External correlation Id: 1419777944394483829
   Machine Id:              Zw5FPfBfDjLwRaeI5L/7LGfvuoo=
-[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-User" (connect: 0.00s, validation: 0.00s, handshake: 0.07s)
-[Licensing::IpcConnector] Successfully connected to: "LicenseClient-User-notifications" at "2026-09-09T13:05:38.1668015Z"
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-User" (connect: 0.00s, validation: 0.00s, handshake: 0.08s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-User-notifications" at "2026-09-09T13:09:25.5149581Z"
 [Licensing::Module] Error: Access token is unavailable; failed to update
 [Licensing::Client] Successfully resolved entitlement details
 [Licensing::Module] License group:
@@ -25,7 +25,7 @@ Date: 2026-09-09T13:05:38Z
   Product: Unity Personal
   Type: Assigned
   Expiration: Unlimited
-[Licensing::Client] Successfully updated license, isAsync: True, time: 0.01
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
 [Licensing::Client] Successfully resolved entitlement details
 [Licensing::Module] Licensing Background thread has ended after 0.09s
 
