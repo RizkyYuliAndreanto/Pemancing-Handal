@@ -283,6 +283,7 @@ public class FishingPlayerController : MonoBehaviour
             case FishingState.WaitingForBite:
                 if (bobber != null)
                     bobber.position = waterPoint + Vector3.up * (Mathf.Sin(Time.time * 2.5f) * 0.08f);
+                HoldAnimation(); // prevent auto-transition to Fighting
                 break;
 
             case FishingState.Pulling:
@@ -307,6 +308,10 @@ public class FishingPlayerController : MonoBehaviour
                     }
                     state = FishingState.ReelBack;
                     stateTimer = ReelBackDuration;
+                }
+                else
+                {
+                    HoldAnimation(); // prevent auto-transition to Stop
                 }
                 break;
             }
@@ -429,6 +434,8 @@ public class FishingPlayerController : MonoBehaviour
         return inputSystemClick || legacyClick;
     }
 
+    private string currentAnimState;
+
     private void PlayFishingAnimation(string stateName)
     {
         if (fishingAnimator == null)
@@ -444,8 +451,26 @@ public class FishingPlayerController : MonoBehaviour
         if (!fishingAnimator.HasState(0, stateHash) && !fishingAnimator.HasState(0, baseLayerStateHash))
             return;
 
+        currentAnimState = stateName;
         fishingAnimator.enabled = true;
         fishingAnimator.Play(fishingAnimator.HasState(0, stateHash) ? stateHash : baseLayerStateHash, 0, 0f);
+    }
+
+    /// <summary>
+    /// Re-assert the current animation to block the controller's built-in
+    /// HasExitTime transitions from auto-cycling to the next state.
+    /// Called once per frame from AnimateFishing for looping states.
+    /// </summary>
+    private void HoldAnimation()
+    {
+        if (fishingAnimator == null || string.IsNullOrEmpty(currentAnimState))
+            return;
+        var info = fishingAnimator.GetCurrentAnimatorStateInfo(0);
+        var expectedHash = Animator.StringToHash(currentAnimState);
+        var expectedBaseHash = Animator.StringToHash($"Base Layer.{currentAnimState}");
+        // If the animator transitioned away on its own, force it back
+        if (info.shortNameHash != expectedHash && info.fullPathHash != expectedBaseHash)
+            fishingAnimator.Play(fishingAnimator.HasState(0, expectedHash) ? expectedHash : expectedBaseHash, 0, info.normalizedTime % 1f);
     }
 
     private void ConfigureFishingAnimator()

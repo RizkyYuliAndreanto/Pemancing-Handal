@@ -221,6 +221,7 @@ public class FishingBot : MonoBehaviour
             case FishingState.WaitingForBite:
                 if (bobber != null)
                     bobber.position = waterPoint + Vector3.up * (Mathf.Sin(Time.time * 2.5f) * 0.08f);
+                HoldAnimation();
                 break;
 
             case FishingState.Pulling:
@@ -243,6 +244,10 @@ public class FishingBot : MonoBehaviour
                     }
                     state = FishingState.ReelBack;
                     stateTimer = ReelBackDuration;
+                }
+                else
+                {
+                    HoldAnimation();
                 }
                 break;
             }
@@ -361,6 +366,8 @@ public class FishingBot : MonoBehaviour
         target = homePosition + new Vector3(random.x, 0f, random.y);
     }
 
+    private string currentAnimState;
+
     private void PlayFishingAnimation(string stateName)
     {
         if (fishingAnimator == null)
@@ -376,8 +383,20 @@ public class FishingBot : MonoBehaviour
         if (!fishingAnimator.HasState(0, stateHash) && !fishingAnimator.HasState(0, baseLayerStateHash))
             return;
 
+        currentAnimState = stateName;
         fishingAnimator.enabled = true;
         fishingAnimator.Play(fishingAnimator.HasState(0, stateHash) ? stateHash : baseLayerStateHash, 0, 0f);
+    }
+
+    private void HoldAnimation()
+    {
+        if (fishingAnimator == null || string.IsNullOrEmpty(currentAnimState))
+            return;
+        var info = fishingAnimator.GetCurrentAnimatorStateInfo(0);
+        var expectedHash = Animator.StringToHash(currentAnimState);
+        var expectedBaseHash = Animator.StringToHash($"Base Layer.{currentAnimState}");
+        if (info.shortNameHash != expectedHash && info.fullPathHash != expectedBaseHash)
+            fishingAnimator.Play(fishingAnimator.HasState(0, expectedHash) ? expectedHash : expectedBaseHash, 0, info.normalizedTime % 1f);
     }
 
     private void ConfigureFishingAnimator()

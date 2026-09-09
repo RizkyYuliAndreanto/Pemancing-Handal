@@ -167,12 +167,12 @@ public class FishingLeaderboardController : MonoBehaviour
             }
         }
 
-        // === MINIGAME / INSTRUCTION AREA (bottom center) ===
+        // === MINIGAME / INSTRUCTION AREA (moved up to avoid Unity log overlap) ===
         if (running)
         {
             var mgW = 380f * s;
             var mgH = 92f * s;
-            var miniGameRect = new Rect(Screen.width * 0.5f - mgW * 0.5f, Screen.height - mgH - 70f * s, mgW, mgH);
+            var miniGameRect = new Rect(Screen.width * 0.5f - mgW * 0.5f, Screen.height - mgH - 140f * s, mgW, mgH);
             if (playerController != null && playerController.IsReadyToCast)
             {
                 var castButton = new Rect(miniGameRect.x + 55f * s, miniGameRect.y + 18f * s, miniGameRect.width - 110f * s, 42f * s);
@@ -212,7 +212,7 @@ public class FishingLeaderboardController : MonoBehaviour
         }
         else if (!ended)
         {
-            GUI.Label(new Rect(Screen.width * 0.5f - 220f * s, Screen.height - 78f * s, 440f * s, 34f * s),
+            GUI.Label(new Rect(Screen.width * 0.5f - 220f * s, Screen.height - 148f * s, 440f * s, 34f * s),
                 mobile ? "JOYSTICK MENUJU KOLAM, LALU TEKAN MULAI" : "WASD MENUJU TEPI KOLAM, LALU TEKAN ENTER", instrStyle);
         }
 
@@ -240,7 +240,7 @@ public class FishingLeaderboardController : MonoBehaviour
             return;
 
         var status = "FISHING: " + playerController.GetFishingDebugState();
-        var debugRect = new Rect(14f * s, Screen.height - 72f * s, 300f * s, 48f * s);
+        var debugRect = new Rect(14f * s, Screen.height - 140f * s, 300f * s, 48f * s);
         GUI.Label(debugRect, status, rowStyle);
     }
 

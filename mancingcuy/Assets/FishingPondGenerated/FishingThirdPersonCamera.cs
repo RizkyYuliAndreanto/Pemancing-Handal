@@ -20,7 +20,8 @@ public class FishingThirdPersonCamera : MonoBehaviour
         var angles = transform.eulerAngles;
         yaw = angles.y;
         pitch = angles.x;
-        SetCursorLock(true);
+        if (!MobileTouchControls.IsMobile)
+            SetCursorLock(true);
     }
 
     private void LateUpdate()
@@ -28,17 +29,34 @@ public class FishingThirdPersonCamera : MonoBehaviour
         if (target == null)
             return;
 
-        if (Mouse.current != null && cursorLocked)
+        if (MobileTouchControls.IsMobile)
         {
-            var delta = Mouse.current.delta.ReadValue();
-            yaw += delta.x * mouseSensitivity * 0.08f;
-            pitch = Mathf.Clamp(pitch - delta.y * mouseSensitivity * 0.08f, minPitch, maxPitch);
+            // Touch drag for camera orbit
+            var delta = MobileTouchControls.CameraDelta;
+            if (delta.sqrMagnitude > 0.1f)
+            {
+                yaw += delta.x * 0.15f;
+                pitch = Mathf.Clamp(pitch - delta.y * 0.15f, minPitch, maxPitch);
+            }
+            // Keep cursor unlocked on mobile
+            if (Cursor.lockState != CursorLockMode.None)
+                SetCursorLock(false);
         }
+        else
+        {
+            // Desktop: mouse delta with cursor lock
+            if (Mouse.current != null && cursorLocked)
+            {
+                var delta = Mouse.current.delta.ReadValue();
+                yaw += delta.x * mouseSensitivity * 0.08f;
+                pitch = Mathf.Clamp(pitch - delta.y * mouseSensitivity * 0.08f, minPitch, maxPitch);
+            }
 
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-            SetCursorLock(false);
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-            SetCursorLock(true);
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+                SetCursorLock(false);
+            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+                SetCursorLock(true);
+        }
 
         var orbit = Quaternion.Euler(pitch, yaw, 0f);
         var desiredPosition = target.position + orbit * offset;
