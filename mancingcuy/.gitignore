@@ -44,3 +44,7 @@ crashlytics-build.properties
 
 # Plastic SCM
 .plastic/
+
+# WebGL build output (raw) — docs/ is the deploy folder, keep it tracked
+/WebGLBuild/
+*.slnx

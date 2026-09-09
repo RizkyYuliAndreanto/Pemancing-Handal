@@ -26,14 +26,16 @@ public class FishingPlayerController : MonoBehaviour
     private FishingLocomotionAnimator locomotionAnimator;
     private Transform rightHandBone;
     private float ikWeight;
+    private CharacterController characterController;
+    private float gravity;
 
-    // ponytail: clip durations cached once — upgrade to dict if clip count grows
     private float clipCastDuration = 1.2f;
     private float clipFightDuration = 1.8f;
     private const float ReelBackDuration = 0.6f;
 
     private void Start()
     {
+        characterController = GetComponent<CharacterController>();
         rod = transform.Find("HeldFishingRod");
         rodTip = rod != null ? FindDeepChild(rod, "Pole_Tip") : null;
         rodRightGrip = rod != null ? FindDeepChild(rod, "RodRightGrip") : null;
@@ -134,7 +136,10 @@ public class FishingPlayerController : MonoBehaviour
 
         state = FishingState.Casting;
         stateTimer = clipCastDuration;
-        waterPoint = transform.position + transform.forward * 2.5f + Vector3.up * 0.3f;
+        // Random cast distance 4~8m so bobber can land near middle of pond
+        var castDist = Random.Range(4f, 8f);
+        waterPoint = transform.position + transform.forward * castDist;
+        waterPoint.y = 0.15f; // water surface
         if (bobber != null)
             bobber.GetComponent<Renderer>().enabled = true;
         PlayFishingAnimation("Fishing Begin");
@@ -223,7 +228,20 @@ public class FishingPlayerController : MonoBehaviour
             input = cameraRight * input.x + cameraForward * input.z;
         }
 
-        transform.position += input * moveSpeed * Time.deltaTime;
+        // Gravity
+        if (characterController != null && !characterController.isGrounded)
+            gravity -= 9.81f * Time.deltaTime;
+        else
+            gravity = -0.5f; // small downward to keep grounded
+
+        var move = input * moveSpeed;
+        move.y = gravity;
+
+        if (characterController != null)
+            characterController.Move(move * Time.deltaTime);
+        else
+            transform.position += move * Time.deltaTime; // fallback
+
         if (input.sqrMagnitude > 0.01f)
             transform.forward = Vector3.Slerp(transform.forward, input, 12f * Time.deltaTime);
     }

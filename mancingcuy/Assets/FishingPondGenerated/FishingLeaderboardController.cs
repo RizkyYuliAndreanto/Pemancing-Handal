@@ -43,14 +43,12 @@ public class FishingLeaderboardController : MonoBehaviour
         if (playerController == null)
             return false;
 
-        var playerPosition = playerController.transform.position;
-        // The water edge is around z=-9.5; z=-16.2 is already inside the pond.
-        var nearestSpot = new Vector3(
-            Mathf.Clamp(playerPosition.x, -12f, 12f),
-            playerPosition.y,
-            -9.5f);
-        return Mathf.Abs(playerPosition.x) <= 15f &&
-            playerPosition.z >= -23f && playerPosition.z <= -7f;
+        var p = playerController.transform.position;
+        // Near any edge of the pond (barriers at x=±10.2, z=±7.2)
+        // Player must be within 4m outside the barrier on at least one axis
+        var nearEastWest = Mathf.Abs(p.x) >= 10f && Mathf.Abs(p.x) <= 15f && Mathf.Abs(p.z) <= 10f;
+        var nearNorthSouth = Mathf.Abs(p.z) >= 7f && Mathf.Abs(p.z) <= 12f && Mathf.Abs(p.x) <= 13f;
+        return nearEastWest || nearNorthSouth;
     }
 
     private void Update()
@@ -336,10 +334,13 @@ public class FishingLeaderboardController : MonoBehaviour
 
     private void BeginBotSessions()
     {
+        // ponytail: spots on east/west pond edges, clear of obstacles
+        // Barriers at x=±10.2, fishing stations at (±12.5,±8.5), rocks at (±11.5,±5)
+        // These sit just outside the barrier on east/west side at z offsets with no obstacles
         var spots = new[]
         {
-            new Vector3(-10.5f, 0.15f, -6.2f), new Vector3(10.5f, 0.15f, -6.2f),
-            new Vector3(-10.5f, 0.15f, 6.2f), new Vector3(10.5f, 0.15f, 6.2f)
+            new Vector3(-11.0f, 0.15f, -3.0f), new Vector3(11.0f, 0.15f, -3.0f),
+            new Vector3(-11.0f, 0.15f, 3.0f), new Vector3(11.0f, 0.15f, 3.0f)
         };
         for (var i = 0; i < spots.Length; i++)
         {

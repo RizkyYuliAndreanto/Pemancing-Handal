@@ -8,6 +8,10 @@ public class FishingBot : MonoBehaviour
     public GameObject fishPrefab;
     public RuntimeAnimatorController fishingAnimatorController;
 
+    // Same state machine concept as FishingPlayerController
+    private enum FishingState { Idle, Casting, WaitingForBite, Pulling, ReelBack }
+    private FishingState state = FishingState.Idle;
+
     private Vector3 target;
     private float waitTimer;
     private Transform rod;
@@ -20,25 +24,28 @@ public class FishingBot : MonoBehaviour
     private float stateTimer;
     private bool sessionFishing;
     private bool atFishingSpot;
-    private bool lineInWater;
-    private bool pulling;
     private Vector3 waterPoint;
     private Animator fishingAnimator;
     private FishingLocomotionAnimator locomotionAnimator;
     private Transform rightHandBone;
     private float ikWeight;
+    private CharacterController characterController;
+    private float gravity;
 
     private float clipCastDuration = 1.2f;
     private float clipFightDuration = 1.8f;
+    private const float ReelBackDuration = 0.6f;
 
     private void Start()
     {
+        characterController = GetComponent<CharacterController>();
         rod = transform.Find("HeldFishingRod");
         rodTip = rod != null ? FindDeepChild(rod, "Pole_Tip") : null;
         rodRightGrip = rod != null ? FindDeepChild(rod, "RodRightGrip") : null;
         rodLeftGrip = rod != null ? FindDeepChild(rod, "RodLeftGrip") : null;
         fishingLine = transform.Find("HeldFishingLine");
         CreateBobber();
+        SetFishingLineVisible(false);
         fishingAnimator = GetComponentInChildren<Animator>();
         locomotionAnimator = GetComponent<FishingLocomotionAnimator>();
         ConfigureFishingAnimator();
@@ -72,73 +79,34 @@ public class FishingBot : MonoBehaviour
         }
     }
 
-    private void Update()
+    // --- Public API (same contract as FishingPlayerController) ---
+
+    public bool IsReadyToFish()
     {
-        AnimateFishing();
-
-        if (pulling)
-            return;
-        if (sessionFishing && atFishingSpot)
-            return;
-
-        if (waitTimer > 0f)
-        {
-            waitTimer -= Time.deltaTime;
-            return;
-        }
-
-        var offset = target - transform.position;
-        offset.y = 0f;
-        if (offset.magnitude < 0.25f)
-        {
-            if (sessionFishing)
-            {
-                atFishingSpot = true;
-                stateTimer = clipCastDuration;
-                lineInWater = false;
-                PlayFishingAnimation("Fishing Begin");
-                var towardPond = new Vector3(-transform.position.x, 0f, -transform.position.z).normalized;
-                waterPoint = transform.position + towardPond * 2.4f + Vector3.up * 0.3f;
-                if (bobber != null)
-                    bobber.GetComponent<Renderer>().enabled = true;
-                return;
-            }
-            waitTimer = Random.Range(1.5f, 4f);
-            PickTarget();
-            return;
-        }
-
-        var direction = offset.normalized;
-        transform.position += direction * moveSpeed * Time.deltaTime;
-        transform.forward = Vector3.Slerp(transform.forward, direction, 5f * Time.deltaTime);
+        return sessionFishing && atFishingSpot && state == FishingState.WaitingForBite;
     }
 
     public void BeginFishingSession(Vector3 fishingSpot)
     {
         sessionFishing = true;
         atFishingSpot = false;
-        pulling = false;
+        state = FishingState.Idle;
         waitTimer = 0f;
         target = fishingSpot;
         stateTimer = 0f;
-        lineInWater = false;
+        SetFishingLineVisible(false);
         if (bobber != null)
             bobber.GetComponent<Renderer>().enabled = false;
     }
 
-    public bool IsReadyToFish()
-    {
-        return sessionFishing && atFishingSpot && lineInWater && !pulling;
-    }
-
     public void EndFishingSession()
     {
-        var wasFishing = atFishingSpot && (lineInWater || stateTimer > 0f || pulling);
+        var wasFishing = state != FishingState.Idle;
         sessionFishing = false;
         atFishingSpot = false;
+        state = FishingState.Idle;
         stateTimer = 0f;
-        lineInWater = false;
-        pulling = false;
+        SetFishingLineVisible(false);
         if (bobber != null)
             bobber.GetComponent<Renderer>().enabled = false;
         if (caughtFish != null)
@@ -153,9 +121,9 @@ public class FishingBot : MonoBehaviour
 
     public void TriggerCatch(float weight)
     {
-        if (!lineInWater || pulling)
+        if (state != FishingState.WaitingForBite)
             return;
-        pulling = true;
+        state = FishingState.Pulling;
         stateTimer = clipFightDuration;
         if (caughtFish != null)
             Destroy(caughtFish);
@@ -168,84 +136,152 @@ public class FishingBot : MonoBehaviour
         PlayFishingAnimation("Fishing Fighting");
     }
 
+    // --- Update ---
+
+    private void Update()
+    {
+        AnimateFishing();
+
+        if (state == FishingState.Pulling || state == FishingState.ReelBack)
+            return;
+        if (sessionFishing && atFishingSpot)
+            return;
+
+        if (waitTimer > 0f)
+        {
+            waitTimer -= Time.deltaTime;
+            return;
+        }
+
+        var offset = target - transform.position;
+        offset.y = 0f;
+        if (offset.magnitude < 1.0f)
+        {
+            if (sessionFishing)
+            {
+                atFishingSpot = true;
+                // Face toward pond center
+                var towardPond = new Vector3(-transform.position.x, 0f, -transform.position.z).normalized;
+                transform.forward = towardPond;
+                // Cast line — random distance 4~8m toward pond center (can reach middle)
+                var castDist = Random.Range(4f, 8f);
+                waterPoint = transform.position + towardPond * castDist;
+                waterPoint.y = 0.15f; // water surface
+                state = FishingState.Casting;
+                stateTimer = clipCastDuration;
+                if (bobber != null)
+                    bobber.GetComponent<Renderer>().enabled = true;
+                PlayFishingAnimation("Fishing Begin");
+                return;
+            }
+            waitTimer = Random.Range(1.5f, 4f);
+            PickTarget();
+            return;
+        }
+
+        var direction = offset.normalized;
+        var move = direction * moveSpeed;
+        if (characterController != null && !characterController.isGrounded)
+            gravity -= 9.81f * Time.deltaTime;
+        else
+            gravity = -0.5f;
+        move.y = gravity;
+        if (characterController != null)
+            characterController.Move(move * Time.deltaTime);
+        else
+            transform.position += direction * moveSpeed * Time.deltaTime;
+        transform.forward = Vector3.Slerp(transform.forward, direction, 5f * Time.deltaTime);
+    }
+
+    // --- Animate fishing (mirrors FishingPlayerController.AnimateFishing) ---
+
     private void AnimateFishing()
     {
-        if (!sessionFishing || !atFishingSpot)
+        if (state == FishingState.Idle)
             return;
 
         stateTimer -= Time.deltaTime;
 
-        // --- Casting ---
-        if (!lineInWater && !pulling && stateTimer > 0f)
+        switch (state)
         {
-            var castProgress = 1f - Mathf.Clamp01(stateTimer / clipCastDuration);
-            if (bobber != null)
-                bobber.position = Vector3.Lerp(GetRodTip(), waterPoint, castProgress);
-            if (stateTimer <= 0f)
+            case FishingState.Casting:
             {
-                lineInWater = true;
-                PlayFishingAnimation("Fishing Loop");
+                var progress = 1f - Mathf.Clamp01(stateTimer / clipCastDuration);
+                if (bobber != null)
+                    bobber.position = Vector3.Lerp(GetRodTip(), waterPoint, progress);
+                if (stateTimer <= 0f)
+                {
+                    state = FishingState.WaitingForBite;
+                    SetFishingLineVisible(true);
+                    PlayFishingAnimation("Fishing Loop");
+                }
+                break;
             }
-            UpdateFishingLine();
-            return;
-        }
 
-        // --- Waiting for bite ---
-        if (lineInWater && !pulling)
-        {
-            if (bobber != null)
-                bobber.position = waterPoint + Vector3.up * (Mathf.Sin(Time.time * 2.5f) * 0.08f);
-            UpdateFishingLine();
-            return;
-        }
+            case FishingState.WaitingForBite:
+                if (bobber != null)
+                    bobber.position = waterPoint + Vector3.up * (Mathf.Sin(Time.time * 2.5f) * 0.08f);
+                break;
 
-        // --- Pulling ---
-        if (pulling && stateTimer > 0f)
-        {
-            if (bobber != null)
-                bobber.GetComponent<Renderer>().enabled = false;
-            if (caughtFish != null)
+            case FishingState.Pulling:
             {
+                if (bobber != null)
+                    bobber.GetComponent<Renderer>().enabled = false;
                 var pullProgress = 1f - Mathf.Clamp01(stateTimer / clipFightDuration);
-                var handPoint = transform.position + transform.forward * 0.55f + Vector3.up * 1.15f;
-                caughtFish.transform.position = Vector3.Lerp(waterPoint, handPoint, pullProgress);
-                caughtFish.transform.rotation = Quaternion.LookRotation(transform.forward, Vector3.up);
+                if (caughtFish != null)
+                {
+                    var handPoint = transform.position + transform.forward * 0.55f + Vector3.up * 1.15f;
+                    caughtFish.transform.position = Vector3.Lerp(waterPoint, handPoint, pullProgress);
+                    caughtFish.transform.rotation = Quaternion.LookRotation(transform.forward, Vector3.up);
+                }
+                if (stateTimer <= 0f)
+                {
+                    if (caughtFish != null)
+                    {
+                        Destroy(caughtFish);
+                        caughtFish = null;
+                    }
+                    state = FishingState.ReelBack;
+                    stateTimer = ReelBackDuration;
+                }
+                break;
             }
-            UpdateFishingLine();
-            return;
+
+            case FishingState.ReelBack:
+                if (stateTimer <= 0f)
+                {
+                    // Re-cast with new random distance
+                    var towardPond = new Vector3(-transform.position.x, 0f, -transform.position.z).normalized;
+                    var castDist = Random.Range(4f, 8f);
+                    waterPoint = transform.position + towardPond * castDist;
+                    waterPoint.y = 0.15f;
+                    state = FishingState.Casting;
+                    stateTimer = clipCastDuration;
+                    if (bobber != null)
+                        bobber.GetComponent<Renderer>().enabled = true;
+                    PlayFishingAnimation("Fishing Begin");
+                }
+                break;
         }
 
-        // --- Pull done → destroy fish, auto re-cast ---
-        if (pulling && stateTimer <= 0f)
+        // Fishing line — same logic as player
+        var showLine = state == FishingState.WaitingForBite || state == FishingState.Pulling;
+        if (fishingLine != null && showLine)
         {
-            if (caughtFish != null)
-            {
-                Destroy(caughtFish);
-                caughtFish = null;
-            }
-            pulling = false;
-            lineInWater = false;
-            stateTimer = clipCastDuration;
-            if (bobber != null)
-                bobber.GetComponent<Renderer>().enabled = true;
-            PlayFishingAnimation("Fishing Begin");
+            SetFishingLineVisible(true);
+            var lineEnd = caughtFish != null ? caughtFish.transform.position :
+                bobber != null ? bobber.position : GetRodTip();
+            var lineVector = lineEnd - GetRodTip();
+            if (lineVector.sqrMagnitude < 0.0001f)
+                return;
+            fishingLine.position = GetRodTip() + lineVector * 0.5f;
+            fishingLine.rotation = Quaternion.FromToRotation(Vector3.up, lineVector.normalized);
+            fishingLine.localScale = new Vector3(0.012f, lineVector.magnitude * 0.5f, 0.012f);
         }
-    }
-
-    private void UpdateFishingLine()
-    {
-        if (fishingLine == null || (!lineInWater && !pulling))
-            return;
-        var rodPoint = GetRodTip();
-        var lineEnd = caughtFish != null ? caughtFish.transform.position :
-            bobber != null ? bobber.position : rodPoint;
-        var lineVector = lineEnd - rodPoint;
-        if (lineVector.sqrMagnitude < 0.0001f)
-            return;
-        fishingLine.GetComponent<Renderer>().enabled = true;
-        fishingLine.position = rodPoint + lineVector * 0.5f;
-        fishingLine.rotation = Quaternion.FromToRotation(Vector3.up, lineVector.normalized);
-        fishingLine.localScale = new Vector3(0.012f, lineVector.magnitude * 0.5f, 0.012f);
+        else
+        {
+            SetFishingLineVisible(false);
+        }
     }
 
     private void OnAnimatorIK(int layerIndex)
@@ -253,7 +289,8 @@ public class FishingBot : MonoBehaviour
         if (fishingAnimator == null || !fishingAnimator.isHuman)
             return;
 
-        var ikActive = sessionFishing && atFishingSpot && (lineInWater || pulling || stateTimer > 0f);
+        var ikActive = state == FishingState.Casting || state == FishingState.WaitingForBite
+            || state == FishingState.Pulling || state == FishingState.ReelBack;
         var targetWeight = ikActive ? 1f : 0f;
         ikWeight = Mathf.MoveTowards(ikWeight, targetWeight, Time.deltaTime * 5f);
 
@@ -274,6 +311,8 @@ public class FishingBot : MonoBehaviour
         fishingAnimator.SetIKRotation(AvatarIKGoal.RightHand, leftHandRot);
     }
 
+    // --- Helpers ---
+
     private void CreateBobber()
     {
         bobber = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
@@ -284,6 +323,7 @@ public class FishingBot : MonoBehaviour
         var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         material.color = new Color(1f, 0.05f, 0.02f);
         bobber.GetComponent<Renderer>().sharedMaterial = material;
+        bobber.GetComponent<Renderer>().enabled = false;
     }
 
     private Vector3 GetRodTip()
@@ -293,6 +333,12 @@ public class FishingBot : MonoBehaviour
         if (rodTip != null)
             return rodTip.position;
         return rod.position + rod.up * rod.lossyScale.y;
+    }
+
+    private void SetFishingLineVisible(bool visible)
+    {
+        if (fishingLine != null)
+            fishingLine.GetComponent<Renderer>().enabled = visible;
     }
 
     private static Transform FindDeepChild(Transform parent, string childName)
