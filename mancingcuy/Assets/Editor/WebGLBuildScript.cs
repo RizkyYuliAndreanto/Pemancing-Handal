@@ -12,6 +12,14 @@ public static class WebGLBuildScript
         var outputPath = Path.Combine(projectRoot, "WebGLBuild");
         var scenes = new[] { "Assets/FishingPondGenerated/FishingPond.unity" };
 
+        if (!File.Exists(Path.Combine(projectRoot, scenes[0])))
+            FishingPondGenerator.Generate();
+
+        EditorBuildSettings.scenes = new[]
+        {
+            new EditorBuildSettingsScene(scenes[0], true)
+        };
+
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
             scenes = scenes,

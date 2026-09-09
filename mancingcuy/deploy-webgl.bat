@@ -9,7 +9,7 @@ echo === MancingCuy WebGL Deploy ===
 echo.
 
 REM Check if WebGL build exists
-if not exist "WebGLBuild\index.html" (
+if not exist "WebGLBuildNew\index.html" (
     echo [ERROR] WebGL build not found!
     echo.
     echo Lakukan build dulu di Unity:
@@ -27,7 +27,7 @@ if exist "docs" rmdir /s /q "docs"
 mkdir "docs"
 
 echo [2/4] Copying WebGL build to docs...
-xcopy "WebGLBuild\*" "docs\" /E /I /Q /Y >nul
+xcopy "WebGLBuildNew\*" "docs\" /E /I /Q /Y >nul
 
 echo [3/4] Staging changes...
 git add docs/

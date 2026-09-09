@@ -184,9 +184,25 @@ public static class FishingPondGenerator
         RenderSettings.fogEndDistance = 100;
 
         EditorSceneManager.SaveScene(scene, ScenePath);
+        EditorBuildSettings.scenes = new[]
+        {
+            new EditorBuildSettingsScene(ScenePath, true)
+        };
         Selection.activeGameObject = root;
         EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath));
         Debug.Log("Kolam pemancingan Indonesia generated at " + ScenePath);
+    }
+
+    [MenuItem("Mancing Cuy/Open Fishing Pond Scene")]
+    public static void OpenGeneratedScene()
+    {
+        if (!File.Exists(ScenePath))
+        {
+            Generate();
+            return;
+        }
+
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
     }
 
     // ====================================================================
